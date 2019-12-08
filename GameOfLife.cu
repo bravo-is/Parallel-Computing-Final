@@ -30,32 +30,47 @@ for UC-Parallel Computing-Fall Semester-2019
 texture<float,2>  texIn;
 texture<float,2>  texOut;
 
-__global__ void GOL_kernel( float *dst ) {
+__global__ void GOL_kernel( float *dst, bool dstOut ) {
     // map from threadIdx/BlockIdx to pixel position
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     int offset = x + y * blockDim.x * gridDim.x;
 
     float   t, l, c, r, b, tl, tr, bl, br, neighbors;
-    t = tex2D(texIn,x,y-1);//top
-    l = tex2D(texIn,x-1,y);//left
-    c = tex2D(texIn,x,y);//center
-    r = tex2D(texIn,x+1,y);//right
-    b = tex2D(texIn,x,y+1);//bottom
-    tl = tex2D(texIn,x-1,y-1);//top-left
-    tr = tex2D(texIn,x+1,y-1);//top-right
-    bl = tex2D(texIn,x-1,y+1);//bottom-left
-    br = tex2D(texIn,x+1,y+1);//bottom-right
+    if (dstOut) {
+      t = tex2D(texIn,x,y-1);//top
+      l = tex2D(texIn,x-1,y);//left
+      c = tex2D(texIn,x,y);//center
+      r = tex2D(texIn,x+1,y);//right
+      b = tex2D(texIn,x,y+1);//bottom
+      tl = tex2D(texIn,x-1,y-1);//top-left
+      tr = tex2D(texIn,x+1,y-1);//top-right
+      bl = tex2D(texIn,x-1,y+1);//bottom-left
+      br = tex2D(texIn,x+1,y+1);//bottom-right
+    }else{
+      t = tex2D(texOut,x,y-1);//top
+      l = tex2D(texOut,x-1,y);//left
+      c = tex2D(texOut,x,y);//center
+      r = tex2D(texOut,x+1,y);//right
+      b = tex2D(texOut,x,y+1);//bottom
+      tl = tex2D(texOut,x-1,y-1);//top-left
+      tr = tex2D(texOut,x+1,y-1);//top-right
+      bl = tex2D(texOut,x-1,y+1);//bottom-left
+      br = tex2D(texOut,x+1,y+1);//bottom-right
+    }
     neighbors = t+l+r+b+tl+tr+bl+br;
     //Game of Life Rules
-    if ( c == 0.0f ){
-      if (neighbors == 3.0f){
-        dst[offset] = 1.0f;
-      }
-    } else{
-      if (!(neighbors == 2.0f || neighbors == 3.0f)){
-        dst[offset] = 0.0f;
-      }
+    if ( c == 1.0f && neighbors < 2 ){
+      dst[offset] = 0.0f;
+    }
+    else if ( c == 1 && (neighbors == 2.0f || neighbors == 3.0f) ){
+      dst[offset] = 1.0f;
+    }
+    else if ( c == 1 && neighbors > 3 ){
+      dst[offset] = 0.0f;
+    }
+    else {
+      dst[offset] = c;
     }
 }
 
@@ -77,8 +92,20 @@ void anim_gpu( DataBlock *d, int ticks ) {
     dim3    threads(16,16);
     CPUAnimBitmap  *bitmap = d->bitmap;
 
-    out = d->dev_outSrc;
-    GOL_kernel<<<blocks,threads>>>( out );
+    // since tex is global and bound, we have to use a flag to
+    // select which is in/out per iteration
+    // we maintain this so that cylce speed can be controlled by timesteps or FPS
+    volatile bool dstOut = true;
+    for (int i=0; i<2; i++) {
+        float *out;
+        if (dstOut) {
+            out = d->dev_outSrc;
+        } else {
+            out = d->dev_inSrc;
+        }
+        GOL_kernel<<<blocks,threads>>>( out, dstOut );
+        dstOut = !dstOut;
+    }
     float_to_color<<<blocks,threads>>>( d->output_bitmap,
                                         d->dev_inSrc );
 
@@ -146,7 +173,7 @@ int main( void ) {
     // populate the board
     float *cellState = (float*)malloc( imageSize );
     for (int i=0; i<DIM*DIM; i++) {
-        cellState[i] = 0;
+        cellState[i] = 0.0f;
         int x = i % DIM;
         int y = i / DIM;
         if ((x>300) && (x<600) && (y>310) && (y<601))
