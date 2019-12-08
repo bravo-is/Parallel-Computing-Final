@@ -169,16 +169,34 @@ int main( void ) {
                                    desc, DIM, DIM,
                                    sizeof(float) * DIM ) );
 
-    // initialize the input data
-    for (int y=800; y<DIM; y++) {
-        for (int x=0; x<200; x++) {
-            temp[x+y*DIM] = MAX_TEMP;
+    // populate the board
+    float *cellState = (float*)malloc( imageSize );
+    for (int i=0; i<DIM*DIM; i++) {
+        temp[i] = 0;
+        int x = i % DIM;
+        int y = i / DIM;
+        if ((x>300) && (x<600) && (y>310) && (y<601))
+            temp[i] = 1.0f;
+    }
+    temp[DIM*100+100] = (1.0f + 0.0f)/2;
+    temp[DIM*700+100] = 0.0f;
+    temp[DIM*300+300] = 0.0f;
+    temp[DIM*200+700] = 0.0f;
+    for (int y=800; y<900; y++) {
+        for (int x=400; x<500; x++) {
+            temp[x+y*DIM] = 0.0f;
         }
     }
-    HANDLE_ERROR( cudaMemcpy( data.dev_inSrc, temp,
+
+    for (int y=800; y<DIM; y++) {
+        for (int x=0; x<200; x++) {
+            temp[x+y*DIM] = 1.0f;
+        }
+    }
+    HANDLE_ERROR( cudaMemcpy( data.dev_inSrc, cellState,
                               imageSize,
                               cudaMemcpyHostToDevice ) );
-    free( temp );
+    free( cellState );
 
     bitmap.anim_and_exit( (void (*)(void*,int))anim_gpu,
                            (void (*)(void*))anim_exit );
