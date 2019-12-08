@@ -30,34 +30,22 @@ for UC-Parallel Computing-Fall Semester-2019
 texture<float,2>  texIn;
 texture<float,2>  texOut;
 
-__global__ void GOL_kernel( float *dst, bool dstOut ) {
+__global__ void GOL_kernel( float *dst ) {
     // map from threadIdx/BlockIdx to pixel position
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     int offset = x + y * blockDim.x * gridDim.x;
 
     float   t, l, c, r, b, tl, tr, bl, br, neighbors;
-    if (dstOut) {
-      t = tex2D(texIn,x,y-1);//top
-      l = tex2D(texIn,x-1,y);//left
-      c = tex2D(texIn,x,y);//center
-      r = tex2D(texIn,x+1,y);//right
-      b = tex2D(texIn,x,y+1);//bottom
-      tl = tex2D(texIn,x-1,y-1);//top-left
-      tr = tex2D(texIn,x+1,y-1);//top-right
-      bl = tex2D(texIn,x-1,y+1);//bottom-left
-      br = tex2D(texIn,x+1,y+1);//bottom-right
-    }else{
-      t = tex2D(texOut,x,y-1);//top
-      l = tex2D(texOut,x-1,y);//left
-      c = tex2D(texOut,x,y);//center
-      r = tex2D(texOut,x+1,y);//right
-      b = tex2D(texOut,x,y+1);//bottom
-      tl = tex2D(texOut,x-1,y-1);//top-left
-      tr = tex2D(texOut,x+1,y-1);//top-right
-      bl = tex2D(texOut,x-1,y+1);//bottom-left
-      br = tex2D(texOut,x+1,y+1);//bottom-right
-    }
+    t = tex2D(texIn,x,y-1);//top
+    l = tex2D(texIn,x-1,y);//left
+    c = tex2D(texIn,x,y);//center
+    r = tex2D(texIn,x+1,y);//right
+    b = tex2D(texIn,x,y+1);//bottom
+    tl = tex2D(texIn,x-1,y-1);//top-left
+    tr = tex2D(texIn,x+1,y-1);//top-right
+    bl = tex2D(texIn,x-1,y+1);//bottom-left
+    br = tex2D(texIn,x+1,y+1);//bottom-right
     neighbors = t+l+r+b+tl+tr+bl+br;
     //Game of Life Rules
     if ( c == 0.0f ){
@@ -89,22 +77,8 @@ void anim_gpu( DataBlock *d, int ticks ) {
     dim3    threads(16,16);
     CPUAnimBitmap  *bitmap = d->bitmap;
 
-    // since tex is global and bound, we have to use a flag to
-    // select which is in/out per iteration
-    // we maintain this so that cylce speed can be controlled by timesteps or FPS
-    volatile bool dstOut = true;
-    for (int i=0; i<1; i++) {
-        float   *in, *out;
-        if (dstOut) {
-            in  = d->dev_inSrc;
-            out = d->dev_outSrc;
-        } else {
-            out = d->dev_inSrc;
-            in  = d->dev_outSrc;
-        }
-        GOL_kernel<<<blocks,threads>>>( out, dstOut );
-        dstOut = !dstOut;
-    }
+    out = d->dev_outSrc;
+    GOL_kernel<<<blocks,threads>>>( out );
     float_to_color<<<blocks,threads>>>( d->output_bitmap,
                                         d->dev_inSrc );
 
@@ -177,15 +151,6 @@ int main( void ) {
         int y = i / DIM;
         if ((x>300) && (x<600) && (y>310) && (y<601))
             cellState[i] = 1.0f;
-    }
-    cellState[DIM*100+100] = (1.0f + 0.0f)/2;
-    cellState[DIM*700+100] = 0.0f;
-    cellState[DIM*300+300] = 0.0f;
-    cellState[DIM*200+700] = 0.0f;
-    for (int y=800; y<900; y++) {
-        for (int x=400; x<500; x++) {
-            cellState[x+y*DIM] = 0.0f;
-        }
     }
 
     for (int y=800; y<DIM; y++) {
