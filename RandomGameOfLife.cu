@@ -23,6 +23,8 @@ for UC-Parallel Computing-Fall Semester-2019
 #include "cuda.h"
 #include "../common/book.h"
 #include "../common/cpu_anim.h"
+#include <stdlib.h>
+#include <time.h>
 
 #define DIM 1024
 
@@ -173,19 +175,20 @@ int main( void ) {
                                    desc, DIM, DIM,
                                    sizeof(float) * DIM ) );
 
-    // populate the board
+    // set the board
     float *cellState = (float*)malloc( imageSize );
     for (int i=0; i<DIM*DIM; i++) {
         cellState[i] = 0.0f;
-        int x = i % DIM;
-        int y = i / DIM;
-        if ((x>300) && (x<600) && (y>310) && (y<601))
-            cellState[i] = 1.0f;
     }
 
-    for (int y=800; y<DIM; y++) {
-        for (int x=0; x<200; x++) {
-            cellState[x+y*DIM] = 1.0f;
+    /* Intializes random number generator */
+    srand((unsigned) time(&t));
+    // randomly populate the board
+    for (int y=0; y<DIM; y++) {
+        for (int x=0; x<DIM; x++) {
+            if (rand() % 2 == 1){
+              cellState[x+y*DIM] = 1.0f;
+            }
         }
     }
     HANDLE_ERROR( cudaMemcpy( data.dev_inSrc, cellState,
