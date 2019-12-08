@@ -60,14 +60,17 @@ __global__ void GOL_kernel( float *dst, bool dstOut ) {
     }
     neighbors = t+l+r+b+tl+tr+bl+br;
     //Game of Life Rules
-    if ( c == 1.0f && neighbors < 2 ){
+    if ( c == 1.0f && neighbors < 2.0f ){
       dst[offset] = 0.0f;
     }
-    else if ( c == 1 && (neighbors == 2.0f || neighbors == 3.0f) ){
+    else if ( c == 1.0f && (neighbors == 2.0f || neighbors == 3.0f) ){
       dst[offset] = 1.0f;
     }
-    else if ( c == 1 && neighbors > 3 ){
+    else if ( c == 1.0f && neighbors > 3.0f ){
       dst[offset] = 0.0f;
+    }
+    else if ( c == 0.0f && neighbors == 3.0f ){
+      dst[offset] = 1.0f;
     }
     else {
       dst[offset] = c;
