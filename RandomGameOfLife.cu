@@ -149,6 +149,7 @@ int main( void ) {
     data.bitmap = &bitmap;
     data.totalTime = 0;
     data.frames = 0;
+    time_t t;
     HANDLE_ERROR( cudaEventCreate( &data.start ) );
     HANDLE_ERROR( cudaEventCreate( &data.stop ) );
 
@@ -175,22 +176,19 @@ int main( void ) {
                                    desc, DIM, DIM,
                                    sizeof(float) * DIM ) );
 
-    // set the board
-    float *cellState = (float*)malloc( imageSize );
-    for (int i=0; i<DIM*DIM; i++) {
-        cellState[i] = 0.0f;
-    }
-
     /* Intializes random number generator */
     srand((unsigned) time(&t));
+
     // randomly populate the board
-    for (int y=0; y<DIM; y++) {
-        for (int x=0; x<DIM; x++) {
-            if (rand() % 2 == 1){
-              cellState[x+y*DIM] = 1.0f;
-            }
-        }
+    float *cellState = (float*)malloc( imageSize );
+    for (int i=0; i<DIM*DIM; i++) {
+      if ( rand() % 2 == 0 ){
+        cellState[i] = 0.0f;
+      }else{
+        cellState[i] = 1.0f;
+      }
     }
+
     HANDLE_ERROR( cudaMemcpy( data.dev_inSrc, cellState,
                               imageSize,
                               cudaMemcpyHostToDevice ) );
